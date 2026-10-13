@@ -1,573 +1,442 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Le 3:12</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gestione spese</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #ffffff; --text: #1d2330; --muted: #6b7385;
+    --border: #e1e4ea; --accent: #2f6fed; --spesa: #d6453d; --entrata: #1f9d55;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171d; --card: #1d2129; --text: #e8eaf0; --muted: #98a0b3;
+      --border: #2d333f; --accent: #5b92ff; --spesa: #ff6b61; --entrata: #3ecf7e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.4;
+  }
+  main { max-width: 900px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.4rem; margin: 8px 0 16px; }
+  h2 { font-size: 1rem; margin: 0 0 12px; }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px; margin-bottom: 14px;
+  }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  input[type=text] {
+    flex: 1; min-width: 200px; padding: 12px; font-size: 1rem;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg); color: var(--text);
+  }
+  button, select {
+    padding: 10px 14px; font-size: 0.95rem; cursor: pointer;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--card); color: var(--text);
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.small { padding: 4px 9px; font-size: 0.85rem; }
+  .hint { color: var(--muted); font-size: 0.85rem; margin-top: 8px; }
+  #msg { margin-top: 8px; min-height: 1.3em; font-size: 0.95rem; }
+  #msg.err { color: var(--spesa); }
+  #msg.ok { color: var(--entrata); }
+  .totali { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .tot { background: var(--bg); border-radius: 8px; padding: 12px; }
+  .tot .label { color: var(--muted); font-size: 0.85rem; }
+  .tot .value { font-size: 1.35rem; font-weight: 600; margin-top: 2px; }
+  .uscite .value { color: var(--spesa); }
+  .entrate .value { color: var(--entrata); }
+  .cat { display: grid; grid-template-columns: 130px 1fr 110px; gap: 10px; align-items: center; margin: 7px 0; font-size: 0.95rem; }
+  .bar { background: var(--bg); border-radius: 5px; height: 12px; overflow: hidden; }
+  .bar > div { background: var(--accent); height: 100%; }
+  .cat .amt { text-align: right; font-variant-numeric: tabular-nums; }
+  .tablewrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+  th, td { padding: 8px 6px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.spesa { color: var(--spesa); }
+  td.entrata { color: var(--entrata); }
+  td select { padding: 4px 6px; font-size: 0.88rem; }
+  .empty { color: var(--muted); padding: 8px 0; }
+  .status { font-size: 0.85rem; color: var(--muted); margin-top: 10px; }
+  @media (max-width: 560px) {
+    .totali { grid-template-columns: 1fr; }
+    .cat { grid-template-columns: 100px 1fr 90px; }
+  }
+</style>
 </head>
 <body>
-  <main class="container">
+<main>
+  <h1>Gestione spese</h1>
 
-    <section id="start-screen">
-      <h1>Le 3:12</h1>
-      <p class="subtitle">Una storia interattiva. Le tue scelte decidono come va a finire.</p>
-      <button id="start-btn">Inizia</button>
-    </section>
+  <div class="card">
+    <div class="row">
+      <input type="text" id="input" placeholder="Es. 15,30 Spesa Alimentare   oppure   +1200 Stipendio" autofocus>
+      <button class="primary" id="aggiungi">Aggiungi</button>
+    </div>
+    <div id="msg"></div>
+    <div class="hint">Formato: importo + descrizione. Per un'entrata scrivi + davanti o parole come stipendio, rimborso, vendita.</div>
+  </div>
 
-<!DOCTYPE html>
-<html lang="it">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Le 3:12</title>
-  <style>
-    * { box-sizing: border-box; }
+  <div class="card">
+    <div class="row" style="justify-content: space-between; margin-bottom: 12px;">
+      <h2 style="margin:0">Riepilogo</h2>
+      <select id="filtro" title="Periodo"></select>
+    </div>
+    <div class="totali">
+      <div class="tot uscite"><div class="label">Uscite totali</div><div class="value" id="totUscite">0,00 €</div></div>
+      <div class="tot entrate"><div class="label">Entrate totali</div><div class="value" id="totEntrate">0,00 €</div></div>
+      <div class="tot"><div class="label">Saldo</div><div class="value" id="totSaldo">0,00 €</div></div>
+    </div>
+  </div>
 
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-family: Georgia, serif;
-      background: #0b0b0d;
-      color: #eee;
-    }
+  <div class="card">
+    <h2>Uscite per categoria</h2>
+    <div id="categorie"></div>
+  </div>
 
-    .container { width: 100%; max-width: 700px; padding: 24px; }
+  <div class="card">
+    <h2>Movimenti</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Data</th><th>Tipo</th><th>Categoria</th><th style="text-align:right">Importo</th><th>Descrizione</th><th></th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div id="vuoto" class="empty" style="display:none">Nessun movimento.</div>
+  </div>
 
-    h1 { font-size: 48px; letter-spacing: 4px; margin-bottom: 8px; }
-    .subtitle { color: #999; margin-bottom: 32px; }
+  <div class="card">
+    <h2>File Excel</h2>
+    <div class="row">
+      <button id="apri">Apri file Excel</button>
+      <button id="nuovo">Nuovo file Excel</button>
+      <button id="scarica">Scarica Excel</button>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+</main>
 
-    #scene-img {
-      display: block;
-      width: 100%;
-      max-width: 480px;
-      margin: 0 auto 20px;
-      border: 2px solid #333;
-      image-rendering: pixelated;
-      image-rendering: crisp-edges;
-    }
+<input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none">
 
-    #text { font-size: 20px; line-height: 1.7; min-height: 150px; cursor: pointer; }
-
-    #choices { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; }
-
-    button {
-      padding: 14px 20px;
-      font-size: 17px;
-      font-family: inherit;
-      text-align: left;
-      color: #fff;
-      background: #1c1c21;
-      border: 1px solid #444;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background 0.2s, border-color 0.2s;
-    }
-    button:hover { background: #2a2a31; border-color: #e50914; }
-
-    #start-btn, #restart-btn {
-      background: #e50914;
-      border-color: #e50914;
-      text-align: center;
-    }
-    #start-btn:hover, #restart-btn:hover { background: #f6121d; }
-
-    #timer { height: 6px; background: #222; border-radius: 3px; margin-top: 24px; overflow: hidden; }
-    #timer-bar { height: 100%; width: 100%; background: #e50914; }
-
-    #ending { margin-top: 24px; padding-top: 16px; border-top: 1px solid #333; }
-    #ending h2 { color: #e50914; margin-bottom: 4px; }
-    #counter { color: #999; }
-
-    .hint { margin-top: 32px; font-size: 13px; color: #555; }
-    .hidden { display: none; }
-  </style>
-</head>
-<body>
-  <main class="container">
-
-    <section id="start-screen">
-      <h1>Le 3:12</h1>
-      <p class="subtitle">Una storia interattiva. Le tue scelte decidono come va a finire.</p>
-      <button id="start-btn">Inizia</button>
-    </section>
-
-    <section id="game" class="hidden">
-      <canvas id="scene-img" width="24" height="16"></canvas>
-      <p id="text"></p>
-      <div id="timer" class="hidden"><div id="timer-bar"></div></div>
-      <div id="choices"></div>
-      <div id="ending" class="hidden">
-        <h2 id="ending-title"></h2>
-        <p id="counter"></p>
-        <button id="restart-btn">Ricomincia</button>
-      </div>
-      <p class="hint">Clicca sul testo per mostrarlo subito per intero</p>
-    </section>
-
-  </main>
-
+<!-- Libreria Excel: se c'è xlsx.full.min.js nella stessa cartella usa quella, altrimenti la scarica da internet -->
+<script src="xlsx.full.min.js"></script>
 <script>
-/* =====================================================
-   DISEGNI IN PIXEL ART
-   Ogni disegno è 24 pixel di larghezza e 16 di altezza.
-   Ogni carattere è un pixel, il colore dipende dalla
-   tavolozza (palette) qui sotto. Il punto "." è vuoto.
-   ===================================================== */
-
-const palette = {
-  "0": "#16161c",  // quasi nero
-  "1": "#555b66",  // grigio scuro
-  "2": "#9aa0aa",  // grigio chiaro
-  "w": "#f2f2f2",  // bianco
-  "r": "#e50914",  // rosso
-  "b": "#3a7bd5",  // blu
-  "B": "#1b2a4a",  // blu notte
-  "y": "#f2c94c",  // giallo
-  "n": "#8b5a2b",  // marrone
-  "N": "#5e3b1c",  // marrone scuro
-  "p": "#c9a27e"   // pelle
-};
-
-const sprites = {
-
-  // Telefono con il messaggio
-  phone: [
-    "........................",
-    ".......2222222222.......",
-    ".......2000000002.......",
-    ".......20rrrrrr02.......",
-    ".......2000000002.......",
-    ".......20wwwwww02.......",
-    ".......2000000002.......",
-    ".......20wwwww002.......",
-    ".......2000000002.......",
-    ".......20wwwwww02.......",
-    ".......2000000002.......",
-    ".......20www00002.......",
-    ".......2000000002.......",
-    ".......2000000002.......",
-    ".......2000rr0002.......",
-    ".......2222222222......."
-  ],
-
-  // Porta con spioncino e maniglia
-  door: [
-    ".....11111111111111.....",
-    ".....1nnnnnnnnnnnn1.....",
-    ".....1nNNNNNNNNNNn1.....",
-    ".....1nNNNNNNNNNNn1.....",
-    ".....1nNNNNyyNNNNn1.....",
-    ".....1nNNNNNNNNNNn1.....",
-    ".....1nNNNNNNNNNNn1.....",
-    ".....1nnnnnnnnnnnn1.....",
-    ".....1nnnnnnnnnyyn1.....",
-    ".....1nnnnnnnnnnnn1.....",
-    ".....1nNNNNNNNNNNn1.....",
-    ".....1nNNNNNNNNNNn1.....",
-    ".....1nNNNNNNNNNNn1.....",
-    ".....1nNNNNNNNNNNn1.....",
-    ".....1nNNNNNNNNNNn1.....",
-    ".....11111111111111....."
-  ],
-
-  // Finestra con la luna
-  window: [
-    "....111111111111111.....",
-    "....1BBBBBB1BBBBBB1.....",
-    "....1BBBBBB1BByyBB1.....",
-    "....1BBBBBB1ByyyyB1.....",
-    "....1BBBBBB1ByyyyB1.....",
-    "....1BBBBBB1BByyBB1.....",
-    "....1BBBBBB1BBBBBB1.....",
-    "....111111111111111.....",
-    "....1BBBBBB1BBBBBB1.....",
-    "....1BBwBBB1BBBBwB1.....",
-    "....1BBBBBB1BBBBBB1.....",
-    "....1BBBBBB1BBBBBB1.....",
-    "....1BBBBBB1BBBBBB1.....",
-    "....111111111111111.....",
-    "...22222222222222222....",
-    "........................"
-  ],
-
-  // Biglietto sul tavolo
-  note: [
-    "........................",
-    "........................",
-    "......wwwwwwwwwwww......",
-    "......w1111111111w......",
-    "......wwwwwwwwwwww......",
-    "......w11111111www......",
-    "......wwwwwwwwwwww......",
-    "......w1111111111w......",
-    "......wwwwwwwwwwww......",
-    "......w1111rrrrrrw......",
-    "......wwwwwwwwwwww......",
-    "......wwwwwwwwwwww......",
-    "nnnnnnnnnnnnnnnnnnnnnnnn",
-    "NNNNNNNNNNNNNNNNNNNNNNNN",
-    "..NN................NN..",
-    "..NN................NN.."
-  ],
-
-  // Figura con il cappotto (con la toppa rossa sul gomito)
-  figure: [
-    ".........pppppp.........",
-    ".........pppppp.........",
-    ".........p0pp0p.........",
-    ".........pppppp.........",
-    ".........p0000p.........",
-    "..........pppp..........",
-    ".....11111111111111.....",
-    ".....11111100111111.....",
-    ".....11111100111111.....",
-    ".....11111100111111.....",
-    ".....1r111100111111.....",
-    ".....11111100111111.....",
-    ".....11111100111111.....",
-    ".....11111100111111.....",
-    "........1111..1111......",
-    "........0000..0000......"
-  ],
-
-  // Auto della polizia con le luci
-  car: [
-    "........................",
-    "........................",
-    "...........br...........",
-    ".......1111111111.......",
-    "......1BBBB1BBBB1.......",
-    "......1BBBB1BBBB1.......",
-    "..wwwwwwwwwwwwwwwwwwww..",
-    "..wwwwwwwwwwwwwwwwwwww..",
-    "..bbbbbbbbbbbbbbbbbbbb..",
-    "..wwwwwwwwwwwwwwwwwwww..",
-    "..wwwwwwwwwwwwwwwwwwww..",
-    "..11111111111111111111..",
-    "....0000........0000....",
-    "....0220........0220....",
-    "....0000........0000....",
-    "........................"
-  ],
-
-  // Casa di notte con una figura alla finestra
-  house: [
-    "........................",
-    "..........NNNN..........",
-    "........NNNNNNNN........",
-    "......NNNNNNNNNNNN......",
-    "....NNNNNNNNNNNNNNNN....",
-    "..NNNNNNNNNNNNNNNNNNNN..",
-    "..11111111111111111111..",
-    "..11yyyy11111111000011..",
-    "..11y00y11111111000011..",
-    "..11y00y11111111000011..",
-    "..11yyyy11111111000011..",
-    "..11111111111111111111..",
-    "..11111111nnnn11111111..",
-    "..11111111nnnn11111111..",
-    "..11111111nnnn11111111..",
-    "000000000000000000000000"
-  ],
-
-  // Orologio fermo sulle 3:12
-  clock: [
-    "........................",
-    "........................",
-    "........................",
-    "..22222222222222222222..",
-    "..2000000000000000000 2..".replace(" ", ""),
-    "..2000000000000000000 2..".replace(" ", ""),
-    "..200rrr....r..rrr000 2..".replace(" ", ""),
-    "..200..r.r.rr....r000 2..".replace(" ", ""),
-    "..200rrr....r..rrr000 2..".replace(" ", ""),
-    "..200..r.r..r..r..000 2..".replace(" ", ""),
-    "..200rrr...rrr.rrr000 2..".replace(" ", ""),
-    "..2000000000000000000 2..".replace(" ", ""),
-    "..22222222222222222222..",
-    "........................",
-    "........................",
-    "........................"
-  ]
-};
-
-/* =====================================================
-   LA STORIA
-   image = nome del disegno da mostrare nella scena
-   ===================================================== */
-
-const story = {
-
-  start: {
-    image: "phone",
-    text: "Sono le 3:12 di notte. Il telefono vibra sul comodino. Un numero sconosciuto: «Non aprire la porta. Sono già dentro casa tua.» Un attimo dopo, qualcuno bussa.",
-    choices: [
-      { text: "Guardare dallo spioncino", next: "spioncino" },
-      { text: "Chiamare la polizia", next: "polizia" },
-      { text: "Non fare niente e restare a letto", next: "ignora" }
-    ],
-    default: 2
-  },
-
-  spioncino: {
-    image: "door",
-    text: "Dallo spioncino vedi una figura di spalle, ferma sul pianerottolo. Indossa il tuo stesso cappotto, quello con la toppa sul gomito. Bussa ancora, tre colpi lenti.",
-    choices: [
-      { text: "Aprire la porta", next: "apri" },
-      { text: "Chiedere chi è", next: "chiedi" },
-      { text: "Allontanarti e andare in cucina", next: "cucina" }
-    ],
-    default: 1
-  },
-
-  polizia: {
-    image: "phone",
-    text: "L'operatore risponde subito e ti ascolta senza fare domande. «Una pattuglia è già sotto casa sua. Non apra a nessuno.» Poi aggiunge: «Resti in linea.»",
-    choices: [
-      { text: "Restare in linea", next: "linea" },
-      { text: "Controllare dalla finestra", next: "finestra" }
-    ],
-    default: 0
-  },
-
-  ignora: {
-    image: "window",
-    text: "I colpi smettono. Per un minuto c'è solo silenzio. Poi senti dei passi lenti in cucina e il rumore di un cassetto che si apre.",
-    choices: [
-      { text: "Prendere la torcia e andare in cucina", next: "cucina" },
-      { text: "Chiuderti in bagno", next: "bagno" }
-    ],
-    default: 1
-  },
-
-  chiedi: {
-    image: "door",
-    text: "«Chi è?» La risposta arriva subito, attraverso la porta. È la tua voce, identica. «Sono io. Ho pochi minuti. Devi uscire dalla finestra, adesso.»",
-    choices: [
-      { text: "Fidarti e uscire dalla finestra", next: "fuga" },
-      { text: "Non fidarti e chiamare la polizia", next: "polizia" }
-    ],
-    default: 1
-  },
-
-  cucina: {
-    image: "note",
-    text: "In cucina la luce è accesa, ma non c'è nessuno. Sul tavolo trovi un biglietto piegato in due, scritto con la tua calligrafia.",
-    choices: [
-      { text: "Leggere il biglietto", next: "biglietto" },
-      { text: "Spegnere la luce e nasconderti in bagno", next: "bagno" }
-    ],
-    default: 0
-  },
-
-  biglietto: {
-    image: "note",
-    text: "Il biglietto dice: «Se apri la porta, tutto ricomincia da capo. Esci dalla finestra. Non ci sono altre possibilità.» Il bussare riprende, più forte.",
-    choices: [
-      { text: "Uscire dalla finestra", next: "fuga" },
-      { text: "Aprire la porta", next: "apri" }
-    ],
-    default: 0
-  },
-
-  finestra: {
-    image: "car",
-    text: "Dalla finestra vedi la pattuglia, con le luci blu accese. Le portiere sono aperte, ma dentro non c'è nessuno. Nella strada non si muove niente.",
-    choices: [
-      { text: "Scendere in strada", next: "pattuglia" },
-      { text: "Restare in casa, in linea con l'operatore", next: "linea" }
-    ],
-    default: 1
-  },
-
-  // ---------- FINALI ----------
-
-  apri: {
-    image: "figure",
-    ending: true,
-    title: "Finale 1: Il doppio",
-    text: "Apri la porta. Davanti a te c'è un uomo identico a te, con il tuo cappotto. Ti guarda e sorride. «Finalmente.» Entra in casa, si siede sul tuo letto e prende il tuo telefono. Tu resti sul pianerottolo. Sono le 3:12."
-  },
-
-  linea: {
-    image: "phone",
-    ending: true,
-    title: "Finale 2: Linea interrotta",
-    text: "La voce dell'operatore cambia lentamente, fino a diventare quella del messaggio. La chiamata cade. In quel momento la serratura scatta da sola, e la porta si apre."
-  },
-
-  bagno: {
-    image: "clock",
-    ending: true,
-    title: "Finale 3: L'attesa",
-    text: "Resti chiuso in bagno fino all'alba. Poi esci: la casa è in ordine, la porta è chiusa a chiave, non c'è nessuno. Ma il telefono segna ancora le 3:12, e l'orario non cambia più."
-  },
-
-  fuga: {
-    image: "house",
-    ending: true,
-    title: "Finale 4: Fuori",
-    text: "Scavalchi la finestra e scendi in strada. L'aria è fredda e tutto è silenzioso. Ti giri a guardare casa tua: c'è una figura alla finestra, con il tuo cappotto, che alza una mano per salutarti. Poi spegne la luce."
-  },
-
-  pattuglia: {
-    image: "car",
-    ending: true,
-    title: "Finale 5: La pattuglia vuota",
-    text: "Scendi e arrivi alla pattuglia. Sul sedile c'è un telefono acceso. Sullo schermo, un messaggio con il tuo nome: «Non aprire la porta. Sono già dentro la tua macchina.»"
+  if (typeof XLSX === "undefined") {
+    document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"><\/script>');
   }
+</script>
+<script>
+"use strict";
+
+const HEADER = ["Data", "Tipo", "Categoria", "Importo", "Descrizione"];
+const LS_KEY = "spese_movimenti_v1";
+
+const CAT_SPESA = {
+  "Alimentari": ["alimentar", "spesa", "supermercato", "cibo", "conad", "coop", "esselunga", "lidl", "eurospin"],
+  "Abbonamenti": ["abbonament", "netflix", "spotify", "prime", "disney", "palestra"],
+  "Bollette": ["bolletta", "luce", "gas", "acqua", "internet", "fibra", "telefon", "plenitude", "rifiuti"],
+  "Trasporti": ["benzina", "carburante", "gasolio", "treno", "bus", "autostrada", "taxi", "pedaggio", "assicurazione auto", "bollo"],
+  "Casa": ["affitto", "mutuo", "condominio", "mobili", "casa"],
+  "Salute": ["farmacia", "medico", "dentista", "visita", "medicin"],
+  "Svago": ["ristorante", "pizza", "bar", "cena", "cinema", "caffe", "caffè", "aperitivo", "gioco", "videogioc", "svago"],
+  "Abbigliamento": ["vestit", "scarpe", "abbigliamento", "maglia", "giacca"]
 };
+const CAT_ENTRATA = {
+  "Stipendio": ["stipendio", "paga", "salario"],
+  "Vendite": ["vendita", "venduto", "vinted", "subito"],
+  "Rimborsi": ["rimborso"],
+  "Regali": ["regalo"]
+};
+const PAROLE_ENTRATA = ["entrata", "incasso", "stipendio", "rimborso", "venduto", "vendita", "regalo", "bonus"];
+const PATTERN = /^\s*([+-]?)\s*(\d+(?:[.,]\d{1,2})?)\s*(?:€|euro|eur)?\s*(.*)$/i;
 
-/* =====================================================
-   MOTORE DEL GIOCO
-   ===================================================== */
+let movimenti = [];   // {data, tipo, categoria, importo, descrizione}
+let handle = null;    // file Excel collegato (solo browser con File System Access API)
+let filtro = "tutti";
 
-const startScreen = document.getElementById("start-screen");
-const gameEl = document.getElementById("game");
-const textEl = document.getElementById("text");
-const choicesEl = document.getElementById("choices");
-const timerEl = document.getElementById("timer");
-const timerBar = document.getElementById("timer-bar");
-const endingEl = document.getElementById("ending");
-const endingTitle = document.getElementById("ending-title");
-const counterEl = document.getElementById("counter");
-const imgCanvas = document.getElementById("scene-img");
-const imgCtx = imgCanvas.getContext("2d");
+const $ = id => document.getElementById(id);
+const hasFS = "showOpenFilePicker" in window && "showSaveFilePicker" in window;
+const fmt = n => n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
 
-const TIMER_SECONDS = 10;   // tempo per scegliere
-const TYPE_SPEED = 25;      // millisecondi per lettera
-
-const TOTAL_ENDINGS = Object.values(story).filter(s => s.ending).length;
-
-let currentScene = null;
-let typingInterval = null;
-let timerInterval = null;
-let finishTyping = null;
-
-let foundEndings = [];
-try {
-  foundEndings = JSON.parse(localStorage.getItem("storyEndings")) || [];
-} catch (e) {
-  foundEndings = [];
+/* ---------- Parser ---------- */
+function trovaCategoria(testo, tabella) {
+  const t = testo.toLowerCase();
+  for (const [cat, parole] of Object.entries(tabella)) {
+    if (t.includes(cat.toLowerCase()) || parole.some(p => t.includes(p))) return cat;
+  }
+  return null;
 }
 
-function drawImage(name) {
-  const rows = sprites[name];
-  imgCtx.fillStyle = "#101018";
-  imgCtx.fillRect(0, 0, 24, 16);
-  if (!rows) return;
+function interpreta(msg) {
+  const m = PATTERN.exec(msg);
+  if (!m) return null;
+  const [, segno, num, resto] = m;
+  const importo = parseFloat(num.replace(",", "."));
+  const testo = resto.trim();
+  const entrata = segno === "+" || PAROLE_ENTRATA.some(p => testo.toLowerCase().includes(p));
+  if (entrata) {
+    return { tipo: "Entrata", categoria: trovaCategoria(testo, CAT_ENTRATA) || "Altre entrate", importo, descrizione: testo };
+  }
+  return { tipo: "Spesa", categoria: trovaCategoria(testo, CAT_SPESA) || "Altro", importo, descrizione: testo };
+}
 
-  rows.forEach((row, y) => {
-    for (let x = 0; x < 24 && x < row.length; x++) {
-      const color = palette[row[x]];
-      if (color) {
-        imgCtx.fillStyle = color;
-        imgCtx.fillRect(x, y, 1, 1);
-      }
-    }
+function adesso() {
+  const d = new Date(), p = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+/* ---------- Messaggi ---------- */
+function messaggio(testo, tipo) {
+  const el = $("msg");
+  el.textContent = testo;
+  el.className = tipo || "";
+}
+function stato(testo) { $("status").textContent = testo; }
+
+function aggiornaStato() {
+  if (handle) stato(`Salvataggio automatico su: ${handle.name}`);
+  else if (hasFS) stato("Dati salvati nel browser. Con \"Apri file Excel\" o \"Nuovo file Excel\" ogni modifica viene scritta direttamente sul tuo file.");
+  else stato("Dati salvati nel browser. Questo browser non scrive direttamente sui file: usa \"Scarica Excel\" per ottenere il file aggiornato.");
+}
+
+/* ---------- Salvataggio ---------- */
+function costruisciXlsx() {
+  if (typeof XLSX === "undefined") throw new Error("Libreria Excel non disponibile (serve internet o il file xlsx.full.min.js nella stessa cartella).");
+  const righe = [HEADER, ...movimenti.map(m => [m.data, m.tipo, m.categoria, m.importo, m.descrizione])];
+  const ws = XLSX.utils.aoa_to_sheet(righe);
+  ws["!cols"] = [{ wch: 18 }, { wch: 10 }, { wch: 18 }, { wch: 12 }, { wch: 40 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Movimenti");
+  return wb;
+}
+
+async function scriviSuFile() {
+  if (!handle) return;
+  try {
+    const wb = costruisciXlsx();
+    const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+    const w = await handle.createWritable();
+    await w.write(buf);
+    await w.close();
+    aggiornaStato();
+  } catch (e) {
+    stato("Errore nella scrittura del file: " + e.message);
+  }
+}
+
+function salva() {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(movimenti)); } catch (e) {}
+  scriviSuFile();
+}
+
+function caricaLocale() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) movimenti = JSON.parse(raw);
+  } catch (e) { movimenti = []; }
+}
+
+function leggiXlsx(buf) {
+  if (typeof XLSX === "undefined") throw new Error("Libreria Excel non disponibile (serve internet o il file xlsx.full.min.js nella stessa cartella).");
+  const wb = XLSX.read(buf, { type: "array" });
+  const ws = wb.Sheets["Movimenti"] || wb.Sheets[wb.SheetNames[0]];
+  const righe = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+  const out = [];
+  for (const r of righe.slice(1)) {
+    const importo = typeof r[3] === "number" ? r[3] : parseFloat(String(r[3]).replace(",", "."));
+    if (!r[1] || isNaN(importo)) continue;
+    out.push({
+      data: String(r[0]), tipo: r[1] === "Entrata" ? "Entrata" : "Spesa",
+      categoria: String(r[2] || (r[1] === "Entrata" ? "Altre entrate" : "Altro")),
+      importo, descrizione: String(r[4] || "")
+    });
+  }
+  return out;
+}
+
+/* ---------- Render ---------- */
+function tutteCategorie(tipo) {
+  const base = Object.keys(tipo === "Entrata" ? CAT_ENTRATA : CAT_SPESA);
+  base.push(tipo === "Entrata" ? "Altre entrate" : "Altro");
+  return base;
+}
+
+function render() {
+  // filtro per mese
+  const mesi = [...new Set(movimenti.map(m => m.data.slice(0, 7)))].filter(Boolean).sort().reverse();
+  const sel = $("filtro");
+  sel.innerHTML = "";
+  sel.add(new Option("Tutto il periodo", "tutti"));
+  mesi.forEach(m => sel.add(new Option(m, m)));
+  if (filtro !== "tutti" && !mesi.includes(filtro)) filtro = "tutti";
+  sel.value = filtro;
+
+  const visibili = [];
+  movimenti.forEach((m, i) => { if (filtro === "tutti" || m.data.startsWith(filtro)) visibili.push(i); });
+
+  let uscite = 0, entrate = 0;
+  const perCat = {};
+  visibili.forEach(i => {
+    const m = movimenti[i];
+    if (m.tipo === "Spesa") { uscite += m.importo; perCat[m.categoria] = (perCat[m.categoria] || 0) + m.importo; }
+    else entrate += m.importo;
   });
+  $("totUscite").textContent = fmt(uscite);
+  $("totEntrate").textContent = fmt(entrate);
+  const saldo = entrate - uscite;
+  $("totSaldo").textContent = fmt(saldo);
+  $("totSaldo").style.color = saldo < 0 ? "var(--spesa)" : "var(--entrata)";
+
+  // categorie
+  const cont = $("categorie");
+  cont.innerHTML = "";
+  const ordinate = Object.entries(perCat).sort((a, b) => b[1] - a[1]);
+  if (!ordinate.length) cont.innerHTML = '<div class="empty">Nessuna spesa registrata.</div>';
+  ordinate.forEach(([cat, tot]) => {
+    const perc = uscite ? tot / uscite * 100 : 0;
+    const riga = document.createElement("div");
+    riga.className = "cat";
+    const nome = document.createElement("div"); nome.textContent = cat;
+    const bar = document.createElement("div"); bar.className = "bar";
+    const fill = document.createElement("div"); fill.style.width = perc + "%"; bar.appendChild(fill);
+    const amt = document.createElement("div"); amt.className = "amt"; amt.textContent = `${fmt(tot)}  ${perc.toFixed(0)}%`;
+    riga.append(nome, bar, amt);
+    cont.appendChild(riga);
+  });
+
+  // tabella (più recenti in alto)
+  const tbody = $("tbody");
+  tbody.innerHTML = "";
+  [...visibili].reverse().forEach(i => {
+    const m = movimenti[i];
+    const tr = document.createElement("tr");
+    const td = (testo, cls) => { const c = document.createElement("td"); c.textContent = testo; if (cls) c.className = cls; return c; };
+    tr.appendChild(td(m.data));
+    tr.appendChild(td(m.tipo, m.tipo === "Spesa" ? "spesa" : "entrata"));
+
+    const tdCat = document.createElement("td");
+    const s = document.createElement("select");
+    const opzioni = tutteCategorie(m.tipo);
+    if (!opzioni.includes(m.categoria)) opzioni.push(m.categoria);
+    opzioni.forEach(c => s.add(new Option(c, c)));
+    s.value = m.categoria;
+    s.addEventListener("change", () => { movimenti[i].categoria = s.value; salva(); render(); });
+    tdCat.appendChild(s);
+    tr.appendChild(tdCat);
+
+    tr.appendChild(td((m.tipo === "Spesa" ? "-" : "+") + fmt(m.importo), "num " + (m.tipo === "Spesa" ? "spesa" : "entrata")));
+    tr.appendChild(td(m.descrizione));
+
+    const tdDel = document.createElement("td");
+    const b = document.createElement("button");
+    b.className = "small"; b.textContent = "Elimina";
+    b.addEventListener("click", () => {
+      if (!confirm("Eliminare questo movimento?")) return;
+      movimenti.splice(i, 1); salva(); render();
+    });
+    tdDel.appendChild(b);
+    tr.appendChild(tdDel);
+    tbody.appendChild(tr);
+  });
+  $("vuoto").style.display = visibili.length ? "none" : "block";
 }
 
-function showScene(id) {
-  clearInterval(typingInterval);
-  clearInterval(timerInterval);
+/* ---------- Azioni ---------- */
+function aggiungi() {
+  const testo = $("input").value.trim();
+  if (!testo) return;
+  const r = interpreta(testo);
+  if (!r) { messaggio("Formato non riconosciuto. Esempio: 15,30 Spesa Alimentare", "err"); return; }
+  movimenti.push({ data: adesso(), ...r });
+  salva();
+  $("input").value = "";
+  messaggio(`Aggiunto: ${r.tipo} | ${r.categoria} | ${fmt(r.importo)}`, "ok");
+  render();
+}
 
-  currentScene = story[id];
-  choicesEl.innerHTML = "";
-  timerEl.classList.add("hidden");
-  endingEl.classList.add("hidden");
+const TIPI_FILE = [{ description: "File Excel", accept: { "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"] } }];
 
-  drawImage(currentScene.image);
+function sostituisciDati(nuovi) {
+  if (movimenti.length && !confirm("Sostituire i movimenti attuali con quelli del file?")) return false;
+  movimenti = nuovi;
+  return true;
+}
 
-  typeText(currentScene.text, () => {
-    if (currentScene.ending) {
-      showEnding(id);
+async function apriFile() {
+  try {
+    if (hasFS) {
+      const [h] = await window.showOpenFilePicker({ types: TIPI_FILE, multiple: false });
+      await h.requestPermission({ mode: "readwrite" });
+      const file = await h.getFile();
+      const nuovi = leggiXlsx(await file.arrayBuffer());
+      if (!sostituisciDati(nuovi)) return;
+      handle = h;
+      salva();
     } else {
-      showChoices();
+      $("fileInput").click();
+      return;
     }
-  });
-}
-
-function typeText(text, onDone) {
-  let i = 0;
-  textEl.textContent = "";
-
-  finishTyping = () => {
-    clearInterval(typingInterval);
-    typingInterval = null;
-    finishTyping = null;
-    textEl.textContent = text;
-    onDone();
-  };
-
-  typingInterval = setInterval(() => {
-    i++;
-    textEl.textContent = text.slice(0, i);
-    if (i >= text.length) {
-      finishTyping();
-    }
-  }, TYPE_SPEED);
-}
-
-function showChoices() {
-  currentScene.choices.forEach((choice, index) => {
-    const btn = document.createElement("button");
-    btn.textContent = choice.text;
-    btn.addEventListener("click", () => choose(index));
-    choicesEl.appendChild(btn);
-  });
-  startTimer();
-}
-
-function startTimer() {
-  const total = TIMER_SECONDS * 1000;
-  const startTime = Date.now();
-  timerEl.classList.remove("hidden");
-  timerBar.style.width = "100%";
-
-  timerInterval = setInterval(() => {
-    const left = total - (Date.now() - startTime);
-    timerBar.style.width = Math.max(0, (left / total) * 100) + "%";
-    if (left <= 0) {
-      choose(currentScene.default);
-    }
-  }, 50);
-}
-
-function choose(index) {
-  clearInterval(timerInterval);
-  showScene(currentScene.choices[index].next);
-}
-
-function showEnding(id) {
-  if (!foundEndings.includes(id)) {
-    foundEndings.push(id);
-    try {
-      localStorage.setItem("storyEndings", JSON.stringify(foundEndings));
-    } catch (e) {}
+    messaggio("File caricato.", "ok");
+    aggiornaStato();
+    render();
+  } catch (e) {
+    if (e.name !== "AbortError") messaggio("Errore: " + e.message, "err");
   }
-  endingTitle.textContent = currentScene.title;
-  counterEl.textContent = "Finali scoperti: " + foundEndings.length + " su " + TOTAL_ENDINGS;
-  endingEl.classList.remove("hidden");
 }
 
-textEl.addEventListener("click", () => {
-  if (finishTyping) finishTyping();
+async function nuovoFile() {
+  if (!hasFS) { messaggio("Questo browser non può creare file direttamente: usa \"Scarica Excel\".", "err"); return; }
+  try {
+    const h = await window.showSaveFilePicker({ suggestedName: "spese.xlsx", types: TIPI_FILE });
+    handle = h;
+    await scriviSuFile();
+    messaggio("File creato e collegato.", "ok");
+    aggiornaStato();
+  } catch (e) {
+    if (e.name !== "AbortError") messaggio("Errore: " + e.message, "err");
+  }
+}
+
+function scarica() {
+  try {
+    XLSX.writeFile(costruisciXlsx(), "spese.xlsx");
+  } catch (e) {
+    messaggio("Errore: " + e.message, "err");
+  }
+}
+
+$("fileInput").addEventListener("change", async ev => {
+  const f = ev.target.files[0];
+  ev.target.value = "";
+  if (!f) return;
+  try {
+    const nuovi = leggiXlsx(await f.arrayBuffer());
+    if (!sostituisciDati(nuovi)) return;
+    salva();
+    messaggio("File caricato. Usa \"Scarica Excel\" per salvare le modifiche.", "ok");
+    render();
+  } catch (e) {
+    messaggio("Errore: " + e.message, "err");
+  }
 });
 
-document.getElementById("start-btn").addEventListener("click", () => {
-  startScreen.classList.add("hidden");
-  gameEl.classList.remove("hidden");
-  showScene("start");
-});
+$("aggiungi").addEventListener("click", aggiungi);
+$("input").addEventListener("keydown", e => { if (e.key === "Enter") aggiungi(); });
+$("filtro").addEventListener("change", e => { filtro = e.target.value; render(); });
+$("apri").addEventListener("click", apriFile);
+$("nuovo").addEventListener("click", nuovoFile);
+$("scarica").addEventListener("click", scarica);
 
-document.getElementById("restart-btn").addEventListener("click", () => {
-  showScene("start");
-});
+caricaLocale();
+aggiornaStato();
+render();
 </script>
 </body>
 </html>
